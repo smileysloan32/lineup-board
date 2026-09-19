@@ -92,6 +92,23 @@ h2{font:700 1.3rem "Barlow Condensed",sans-serif;margin:18px 0 4px}
 .ro .pm,.ro #statusBtns,.ro #sGo,.ro #sReset,.ro #lGo,.ro #picker{display:none!important}
 .lro .fm,.lro .row,.lro #share,.lro #reset,.lro #coach,.lro #status{display:none!important}
 .lro .tok{cursor:default}
+.pt{border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;margin:14px 0 0;background:var(--btn)}
+.pt h2{margin:0 0 6px}
+.pt .hd{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pt select{padding:7px 8px;border-radius:8px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);font:500 .9rem Barlow,system-ui,sans-serif}
+.ptrow{display:grid;grid-template-columns:3.2em 1fr 3.4em;align-items:center;gap:8px;padding:5px 0;font-size:.95rem}
+.ptrow .ini{font-weight:700}
+.ptrow .bar{height:10px;border-radius:5px;background:var(--line);overflow:hidden}
+.ptrow .bar i{display:block;height:100%;background:var(--muted)}
+.ptrow.on .bar i{background:var(--primary)}
+.ptrow .mm{text-align:right;font-variant-numeric:tabular-nums}
+.ptrow.on .ini::after{content:" •";color:var(--ok)}
+.ptnote{font-size:.85rem;color:var(--muted);margin:6px 0 0}
+.clock.subnow{border-color:#B3261E;background:#FCE8E6}
+.clock.subnow .info b{color:#B3261E}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .clock.subnow{background:#3A1411}}
+:root[data-theme="dark"] .clock.subnow{background:#3A1411}
+.ro .pt{display:none!important}
 </style>
 </head>
 <body>
@@ -127,6 +144,7 @@ h2{font:700 1.3rem "Barlow Condensed",sans-serif;margin:18px 0 4px}
 <button class="link" id="reset">Reset this formation</button>
 <button class="link" id="coach" hidden style="margin-left:14px">Copy coach link</button>
 <p id="sync" style="margin:4px 0 0;font-size:.85rem;color:var(--muted)"></p>
+<div class="pt" id="ptBox"><div class="hd"><h2>Playing time</h2><label style="font-size:.9rem;color:var(--muted)">Sub alert <select id="subInt" aria-label="Sub alert interval"><option value="0">Off</option><option value="4">4 min</option><option value="5">5 min</option><option value="6">6 min</option><option value="8">8 min</option><option value="10">10 min</option><option value="12">12 min</option></select></label></div><div id="ptList"></div><p class="ptnote" id="ptNote"></p></div>
 </section>
 <section id="tab-schedule" hidden>
 <p class="sub">2026 Kaufman SA Rec League, 10U. All games at Kaufman Sports Complex.</p>
@@ -183,7 +201,7 @@ function posTo(t,x,y){t.style.left=(x/W*100)+'%';t.style.top=(y/H*100)+'%'}
 function place(n){var p=S()[L()[n]];posTo(toks[n],p[0],p[1])}
 function drawLabels(){var F=FORMS[cur.formation],h='';Object.keys(F).forEach(function(k){var p=F[k];h+='<text x="'+p[0]+'" y="'+(p[1]+32)+'">'+p[2]+'</text>'});labels.innerHTML=h}
 function renderAll(){fmBtns.forEach(function(b){b.setAttribute('aria-pressed',b.dataset.f===cur.formation?'true':'false')});drawLabels();NAMES.forEach(place)}
-function refresh(){var d=JSON.stringify(cur)!==JSON.stringify(saved);saveBtn.disabled=!d||busy;undoBtn.disabled=!d||busy;if(d)msg('Unsaved changes.','warn');else if(st.className==='warn')msg('','');return d}
+function refresh(){if(typeof ptSync==='function')ptSync();var d=JSON.stringify(cur)!==JSON.stringify(saved);saveBtn.disabled=!d||busy;undoBtn.disabled=!d||busy;if(d)msg('Unsaved changes.','warn');else if(st.className==='warn')msg('','');return d}
 function whoAt(slot){var l=L();return NAMES.filter(function(n){return l[n]===slot})[0]}
 function moveTo(n,slot){var l=L();if(l[n]===slot){place(n);return}var o=whoAt(slot);if(o){l[o]=l[n];place(o)}l[n]=slot;place(n);refresh()}
 function nearest(x,y){var best=null,bd=1e9,Sl=S();Object.keys(Sl).forEach(function(k){var p=Sl[k],d=(p[0]-x)*(p[0]-x)+(p[1]-y)*(p[1]-y);if(d<bd){bd=d;best=k}});return best}
@@ -279,7 +297,7 @@ var STAT=[['pre','Not started'],['1H','1st half'],['HT','Halftime'],['2H','2nd h
 var SKEY=KEY+'-scores',scores={};
 try{scores=JSON.parse(localStorage.getItem(SKEY)||'{}')||{}}catch(e){scores={}}
 var scoreWrite=null,ssync=document.getElementById('ssync');
-function sc(n){var g=scores[n];if(!g||!Array.isArray(g.goals))g={goals:[],status:'pre'};if(!g.clock||typeof g.clock!=='object')g.clock={run:false,t0:0,acc:0};return g}
+function sc(n){var g=scores[n];if(!g||!Array.isArray(g.goals))g={goals:[],status:'pre'};if(!g.clock||typeof g.clock!=='object')g.clock={run:false,t0:0,acc:0};if(!g.pt||typeof g.pt!=='object'||!Array.isArray(g.pt.on))g.pt={on:[],since:0,mins:{}};if(!g.pt.mins)g.pt.mins={};return g}
 function elapsed(c){return Math.max(0,(c.acc||0)+(c.run?Date.now()-(c.t0||Date.now()):0))}
 function fmtT(ms){var t=Math.floor(ms/1000),m=Math.floor(t/60),x=t%60;return m+':'+(x<10?'0':'')+x}
 function startC(c){if(!c.run){c.run=true;c.t0=Date.now()}}
@@ -321,7 +339,7 @@ function renderScore(){
   document.getElementById('oppName').textContent=g.opp;
   document.getElementById('sUs').textContent=r[0];document.getElementById('sThem').textContent=r[1];
   var sb=document.getElementById('statusBtns');sb.textContent='';
-  STAT.forEach(function(p){var b=el('button',null,p[1]);b.setAttribute('aria-pressed',s.status===p[0]?'true':'false');b.onclick=function(){var prev=s.status;s.status=p[0];if(p[0]==='1H'&&prev==='pre')resetC(s.clock,true);else if(p[0]==='2H'&&prev!=='2H')resetC(s.clock,true);else if(p[0]==='HT'||p[0]==='FT'||p[0]==='pre')pauseC(s.clock);commit(g.n,s)};sb.appendChild(b)});
+  STAT.forEach(function(p){var b=el('button',null,p[1]);b.setAttribute('aria-pressed',s.status===p[0]?'true':'false');b.onclick=function(){var prev=s.status;s.status=p[0];if(p[0]==='1H'&&prev==='pre'){resetC(s.clock,true);ptKick(s)}else if(p[0]==='2H'&&prev!=='2H'){flushPT(s);resetC(s.clock,true);s.pt.since=0}else if(p[0]==='HT'||p[0]==='FT'||p[0]==='pre'){flushPT(s);pauseC(s.clock)}commit(g.n,s)};sb.appendChild(b)});
   var log=document.getElementById('glog');log.textContent='';
   if(!s.goals.length){log.appendChild(el('li',null,'No goals yet.'))}
   s.goals.forEach(function(x,i){var li=el('li');li.appendChild(el('span',null,(x.t==='us'?'Armadillos'+(x.p?' – '+x.p:''):g.opp)+'  ('+(x.h===2?'2nd':'1st')+' half)'));
@@ -343,11 +361,11 @@ if(SCORE){
   ssync.textContent='Connecting…';
   getFB().then(function(x){var F=x.F,db=x.db,col=F.collection(db,'scores',SCORE,'games');
     var mcol=VIEW?F.collection(db,'view',VIEW,'games'):null,seeded=false;
-    scoreWrite=function(n,s){var d={goals:s.goals,status:s.status,clock:{run:!!s.clock.run,t0:s.clock.t0||0,acc:s.clock.acc||0},updated:F.serverTimestamp()};if(!mcol)return F.setDoc(F.doc(col,n),d);var b=F.writeBatch(db);b.set(F.doc(col,n),d);b.set(F.doc(mcol,n),d);return b.commit()};
+    scoreWrite=function(n,s){var d={goals:s.goals,status:s.status,clock:{run:!!s.clock.run,t0:s.clock.t0||0,acc:s.clock.acc||0},pt:{on:s.pt.on,since:s.pt.since||0,mins:s.pt.mins},updated:F.serverTimestamp()};if(!mcol)return F.setDoc(F.doc(col,n),d);var b=F.writeBatch(db);b.set(F.doc(col,n),d);b.set(F.doc(mcol,n),d);return b.commit()};
     F.onSnapshot(col,function(qs){
-      if(!seeded&&mcol&&!qs.metadata.fromCache){seeded=true;qs.docs.forEach(function(dd){var d=dd.data();if(Array.isArray(d.goals))scoreWrite(dd.id,{goals:d.goals,status:d.status||'pre',clock:d.clock||{run:false,t0:0,acc:0}}).catch(function(){})})}
+      if(!seeded&&mcol&&!qs.metadata.fromCache){seeded=true;qs.docs.forEach(function(dd){var d=dd.data();if(Array.isArray(d.goals))scoreWrite(dd.id,{goals:d.goals,status:d.status||'pre',clock:d.clock||{run:false,t0:0,acc:0},pt:d.pt}).catch(function(){})})}
       ssync.textContent=qs.metadata.fromCache?'Offline. Showing the last synced scores.':'Scores are live and shared.';
-      qs.docChanges().forEach(function(ch){if(ch.doc.metadata.hasPendingWrites)return;var d=ch.doc.data();if(Array.isArray(d.goals))scores[ch.doc.id]={goals:d.goals,status:d.status||'pre',clock:d.clock||{run:false,t0:0,acc:0}}});
+      qs.docChanges().forEach(function(ch){if(ch.doc.metadata.hasPendingWrites)return;var d=ch.doc.data();if(Array.isArray(d.goals))scores[ch.doc.id]={goals:d.goals,status:d.status||'pre',clock:d.clock||{run:false,t0:0,acc:0},pt:d.pt}});
       try{localStorage.setItem(SKEY,JSON.stringify(scores))}catch(e){}
       renderScore();renderSchedule();
     },function(){ssync.textContent='Could not reach shared scores. Saving on this phone only.'});
@@ -357,7 +375,7 @@ if(SCORE){
   getFB().then(function(x){var F=x.F,db=x.db;
     F.onSnapshot(F.collection(db,'view',VIEW,'games'),function(qs){
       ssync.textContent=qs.metadata.fromCache?'Offline. Showing the last scores this phone saw.':'Live scores from the sideline.';
-      qs.docChanges().forEach(function(ch){var d=ch.doc.data();if(Array.isArray(d.goals))scores[ch.doc.id]={goals:d.goals,status:d.status||'pre',clock:d.clock||{run:false,t0:0,acc:0}}});
+      qs.docChanges().forEach(function(ch){var d=ch.doc.data();if(Array.isArray(d.goals))scores[ch.doc.id]={goals:d.goals,status:d.status||'pre',clock:d.clock||{run:false,t0:0,acc:0},pt:d.pt}});
       try{localStorage.setItem(SKEY,JSON.stringify(scores))}catch(e){}
       renderScore();renderSchedule();paintClock();
     },function(){ssync.textContent='Could not load scores right now.'});
@@ -391,11 +409,51 @@ function paintClock(){
   var lb=document.getElementById('lGo');lb.textContent=lc.run?'Pause':'Start';lb.className=lc.run?'':'go';
   var inf=document.getElementById('lInfo');inf.textContent='';var bb=document.createElement('b');bb.textContent=STLBL[ls.status]+' · '+lr[0]+'–'+lr[1];inf.appendChild(bb);inf.appendChild(document.createElement('br'));inf.appendChild(document.createTextNode((lg.home?'vs ':'at ')+lg.opp));
 }
-function toggle(n){var s=sc(n);if(s.clock.run)pauseC(s.clock);else{if(s.status==='pre')s.status='1H';startC(s.clock)}commit(n,s)}
+function toggle(n){var s=sc(n);if(s.clock.run){flushPT(s);pauseC(s.clock)}else{if(s.status==='pre'){s.status='1H';resetC(s.clock,true);ptKick(s)}else startC(s.clock)}commit(n,s)}
 document.getElementById('sGo').onclick=function(){toggle(clockGame().n)};
 document.getElementById('lGo').onclick=function(){toggle(lineGame().n)};
-document.getElementById('sReset').onclick=function(){var g=clockGame(),s=sc(g.n);if(elapsed(s.clock)>0&&!confirm('Reset the clock to 0:00?'))return;resetC(s.clock,false);commit(g.n,s)};
-setInterval(paintClock,250);
+document.getElementById('sReset').onclick=function(){var g=clockGame(),s=sc(g.n);if(elapsed(s.clock)>0&&!confirm('Reset the clock to 0:00?'))return;flushPT(s);resetC(s.clock,false);s.pt.since=0;commit(g.n,s)};
+/* playing time */
+function fieldNow(){var l=cur.lineups[cur.formation];return NAMES.filter(function(n){return l[n]&&l[n].charAt(0)!=='B'}).sort()}
+function flushPT(s){var e=elapsed(s.clock);if(e<(s.pt.since||0))s.pt.since=0;var d=e-(s.pt.since||0);if(d>0)s.pt.on.forEach(function(n){s.pt.mins[n]=(s.pt.mins[n]||0)+d});s.pt.since=e}
+function ptKick(s){s.pt={on:fieldNow(),since:0,mins:s.pt&&s.pt.mins&&Object.keys(s.pt.mins).length?s.pt.mins:{}}}
+function live(s){return s.status==='1H'||s.status==='2H'||s.status==='HT'}
+function ptSync(){if(LRO||!scores)return;var g=lineGame(),s=sc(g.n);if(!live(s))return;var f=fieldNow();if(JSON.stringify(f)===JSON.stringify(s.pt.on.slice().sort()))return;flushPT(s);s.pt.on=f;commit(g.n,s)}
+function ptMs(s,n){var m=s.pt.mins[n]||0;if(s.pt.on.indexOf(n)>=0){var e=elapsed(s.clock);if(e>=(s.pt.since||0))m+=e-(s.pt.since||0)}return m}
+var subInt=0;try{subInt=+localStorage.getItem(KEY+'-subint')||0}catch(e){}
+var subSel=document.getElementById('subInt');subSel.value=String(subInt);
+subSel.onchange=function(){subInt=+subSel.value;try{localStorage.setItem(KEY+'-subint',subSel.value)}catch(e){}alerted=null;unlockAudio()};
+var alerted=null,actx=null;
+function unlockAudio(){try{if(!actx)actx=new (window.AudioContext||window.webkitAudioContext)();if(actx.state==='suspended')actx.resume()}catch(e){}}
+document.addEventListener('pointerdown',unlockAudio,{once:true});
+function beep(){try{if(!actx)return;[0,0.35].forEach(function(o){var t=actx.currentTime+o,os=actx.createOscillator(),gn=actx.createGain();os.frequency.value=880;gn.gain.setValueAtTime(0.25,t);gn.gain.exponentialRampToValueAtTime(0.001,t+0.25);os.connect(gn);gn.connect(actx.destination);os.start(t);os.stop(t+0.26)})}catch(e){}}
+var lastPT=0;
+function paintPT(){
+  var g=lineGame(),s=sc(g.n),box=document.getElementById('ptList'),note=document.getElementById('ptNote');
+  var lc=document.getElementById('lclock'),inf=document.getElementById('lInfo');
+  var sub=false;
+  if(subInt&&s.clock.run&&(s.status==='1H'||s.status==='2H')&&s.pt.on.length){
+    var left=subInt*60000-(elapsed(s.clock)-(s.pt.since||0)),key=g.n+s.status+(s.pt.since||0);
+    var line=document.createElement('span');line.style.display='block';
+    if(left<=0){sub=true;line.textContent='Sub now';line.style.fontWeight='700';line.style.color='#B3261E';
+      if(alerted!==key){alerted=key;try{navigator.vibrate&&navigator.vibrate([400,150,400,150,400])}catch(e){}beep()}}
+    else line.textContent='Next sub in '+fmtT(left+999);
+    inf.appendChild(line);
+  }
+  lc.classList.toggle('subnow',sub);
+  var now=Date.now();if(now-lastPT<900)return;lastPT=now;
+  var rows=NAMES.map(function(n){return{n:n,ms:ptMs(s,n),on:s.pt.on.indexOf(n)>=0}}).sort(function(a,b){return a.ms-b.ms||a.n.localeCompare(b.n)});
+  var mx=Math.max(60000,rows.reduce(function(m,r){return Math.max(m,r.ms)},0));
+  box.textContent='';
+  rows.forEach(function(r){var d=el('div','ptrow'+(r.on?' on':''));d.appendChild(el('span','ini',r.n));var b=el('span','bar'),i=document.createElement('i');i.style.width=(r.ms/mx*100)+'%';b.appendChild(i);d.appendChild(b);d.appendChild(el('span','mm',fmtT(r.ms)));box.appendChild(d)});
+  note.textContent=s.status==='pre'?'Minutes start counting when the game clock starts. Least time played is at the top.':'• = on the field now. Swap players on the field above to sub; minutes follow automatically.';
+}
+var wl=null;
+function wake(){var any=GAMES.some(function(g){return sc(g.n).clock.run});
+  if(any&&!wl&&navigator.wakeLock&&document.visibilityState==='visible'){navigator.wakeLock.request('screen').then(function(x){wl=x;x.addEventListener('release',function(){wl=null})}).catch(function(){})}
+  else if(!any&&wl){wl.release().catch(function(){});wl=null}}
+document.addEventListener('visibilitychange',function(){wl=null;wake()});
+setInterval(function(){paintClock();paintPT();wake()},250);
 /* tabs */
 var tabs=[].slice.call(document.querySelectorAll('.tabs button'));
 if(SCORE&&!TEAM&&!VIEW)document.getElementById('t-lineup').hidden=true;
