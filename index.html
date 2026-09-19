@@ -512,6 +512,12 @@ if(VIEW&&!RO){var pl=document.getElementById('parentLink');pl.hidden=false;pl.on
 /* cleanup of accidental starts */
 var cleaned=false;
 function cleanup(){if(cleaned||RO||!scores)return;cleaned=true;
+  (function(){var g=GAMES.filter(function(x){return x.n==='102'})[0],s=scores['102'];if(!g||!s)return;s=sc('102');
+    var HALF=25*60000;if(s.status==='pre'||Date.now()<gameDate(g).getTime()+3*3600000)return;
+    if(s.clock.run)flushPT(s);var tot=elapsed(s.clock);if(tot<=HALF+2*60000&&s.status==='FT'&&!s.clock.run)return;
+    var extra=Math.max(0,tot-HALF);
+    if(extra>0)Object.keys(s.pt.pos).forEach(function(n){var grp=s.pt.pos[n],m=s.pt.mins[n]||{};m[grp]=Math.max(0,(m[grp]||0)-extra);s.pt.mins[n]=m});
+    s.clock={run:false,t0:0,acc:Math.min(tot,HALF)};s.pt.since=s.clock.acc;s.status='FT';commit('102',s,['status','clock','pt'])})();
   GAMES.forEach(function(g){var s=scores[g.n];if(!s)return;s=sc(g.n);
     if(s.status==='FT'&&s.clock.run){s.clock.run=false;s.clock.t0=0;commit(g.n,s,['clock'])}
     else if(isFuture(g)&&s.status!=='pre'&&!s.goals.length){s.status='pre';resetC(s.clock,false);s.pt={pos:{},since:0,mins:{},start:[]};commit(g.n,s,['status','clock','pt'])}
