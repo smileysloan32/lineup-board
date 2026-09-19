@@ -150,18 +150,32 @@ h2{font:700 1.3rem "Barlow Condensed",sans-serif;margin:18px 0 4px}
  #tab-stats>h2{grid-row:2}#tab-stats>#scorers,#tab-stats>#results{grid-row:3}
 }
 @media (min-width:760px) and (orientation:landscape){
- #tab-lineup:not([hidden]){display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,400px);column-gap:28px;align-items:start}
- #tab-lineup>*{grid-column:2}
- #tab-lineup>.fm{grid-column:1;grid-row:1;margin-top:0;width:100%;max-width:420px;justify-self:center}
  .ptrow{grid-template-columns:5.2em 1fr 3.4em}
- #tab-lineup>#board{grid-column:1;grid-row:2/span 14;max-width:calc((100svh - 210px) * 320 / 600)}
- #tab-lineup>#lclock{grid-row:1}
  #tab-score:not([hidden]){display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);column-gap:28px;align-items:start}
  #tab-score>*{grid-column:1}
  #tab-score>h2,#tab-score>#glog,#tab-score>#ssync{grid-column:2}
  #tab-score>h2{grid-row:1;margin-top:0}
  #tab-score>#glog{grid-row:2/span 5}
  #tab-score>#ssync{grid-row:7}
+}
+
+@media (min-width:760px){
+ #tab-lineup:not([hidden]){display:grid;column-gap:22px;align-items:start;grid-template-columns:190px minmax(0,1fr);
+  grid-template-areas:"clock clock" "sub sub" "ctrl fm" "ctrl board" "sync sync" "pt pt"}
+ #lclock{grid-area:clock}#lsub{grid-area:sub}#tab-lineup>.fm{grid-area:fm;width:100%;max-width:420px;justify-self:center;margin:0 0 12px}
+ #tab-lineup>#board{grid-area:board;width:100%;justify-self:center}#ctrls{grid-area:ctrl}#sync{grid-area:sync}#ptBox{grid-area:pt}
+ #ctrls .row{flex-direction:column;margin-top:0}
+ #ctrls #share{margin-top:10px}
+ #ctrls .link{display:block;margin:6px 0 0!important;text-align:left}
+ #ctrls #status{margin-top:8px}
+ .lro #tab-lineup:not([hidden]){grid-template-columns:minmax(0,1fr);grid-template-areas:"clock" "sub" "fm" "board" "sync" "pt"}
+}
+@media (min-width:760px) and (orientation:landscape){
+ #tab-lineup:not([hidden]){grid-template-columns:180px minmax(0,1fr) minmax(300px,380px);grid-template-rows:auto auto auto 1fr;
+  grid-template-areas:"ctrl fm clock" "ctrl board sub" "ctrl board sync" "ctrl board pt"}
+ #tab-lineup>#board{max-width:calc((100svh - 190px) * 320 / 600)}
+ #ptBox{margin-top:8px}
+ .lro #tab-lineup:not([hidden]){grid-template-columns:minmax(0,1fr) minmax(300px,380px);grid-template-areas:"fm clock" "board sub" "board sync" "board pt"}
 }
 </style>
 </head>
@@ -189,6 +203,7 @@ h2{font:700 1.3rem "Barlow Condensed",sans-serif;margin:18px 0 4px}
 <text x="12" y="499" font-size="13" font-weight="600" fill="#4A5541" font-family="Barlow,sans-serif">Bench</text>
 </svg>
 </div>
+<div id="ctrls">
 <div class="row">
 <button class="act primary" id="save" disabled>Save lineup</button>
 <button class="act" id="undo" disabled>Undo changes</button>
@@ -197,6 +212,7 @@ h2{font:700 1.3rem "Barlow Condensed",sans-serif;margin:18px 0 4px}
 <button class="act" id="share" style="width:100%;margin-top:10px">Share this lineup</button>
 <button class="link" id="reset">Reset this formation</button>
 <button class="link" id="coach" hidden style="margin-left:14px">Copy coach link</button>
+</div>
 <p id="sync" style="margin:4px 0 0;font-size:.85rem;color:var(--muted)"></p>
 <div class="pt" id="ptBox"><div class="hd"><h2>Playing time</h2><label style="font-size:.9rem;color:var(--muted)">Sub alert <select id="subInt" aria-label="Sub alert interval"><option value="0">Off</option><option value="4">4 min</option><option value="5">5 min</option><option value="6">6 min</option><option value="8">8 min</option><option value="10">10 min</option><option value="12">12 min</option></select></label></div><div id="ptList"></div><p class="ptnote" id="ptNote"></p></div>
 </section>
