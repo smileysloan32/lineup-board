@@ -386,7 +386,7 @@ var GAMES=[
 var STAT=[['pre','Not started'],['1H','1st half'],['HT','Halftime'],['2H','2nd half'],['FT','Final']];
 var SKEY=KEY+'-scores',scores={};
 try{scores=JSON.parse(localStorage.getItem(SKEY)||'{}')||{}}catch(e){scores={}}
-var scoreWrite=null,ssync=document.getElementById('ssync');
+var serverHas={},ptChecked=null,scoreWrite=null,ssync=document.getElementById('ssync');
 function sc(n){var g=scores[n];if(!g||!Array.isArray(g.goals))g={goals:[],status:'pre'};if(!g.clock||typeof g.clock!=='object')g.clock={run:false,t0:0,acc:0};g.pt=normPT(g.pt);return g}
 function normPT(p){if(!p||typeof p!=='object')return{pos:{},since:0,mins:{},start:[]};var pos=p.pos&&typeof p.pos==='object'?p.pos:{};if(Array.isArray(p.on)&&!p.pos)p.on.forEach(function(n){pos[n]='X'});var mins={};Object.keys(p.mins||{}).forEach(function(n){var v=p.mins[n];mins[n]=typeof v==='number'?{X:v}:(v&&typeof v==='object'?v:{})});return{pos:pos,since:p.since||0,mins:mins,start:Array.isArray(p.start)?p.start:[]}}
 function elapsed(c){return Math.max(0,(c.acc||0)+(c.run?Date.now()-(c.t0||Date.now()):0))}
@@ -430,17 +430,17 @@ function renderScore(){
   document.getElementById('oppName').textContent=g.opp;
   document.getElementById('sUs').textContent=r[0];document.getElementById('sThem').textContent=r[1];
   var sb=document.getElementById('statusBtns');sb.textContent='';
-  STAT.forEach(function(p){var b=el('button',null,p[1]);b.setAttribute('aria-pressed',s.status===p[0]?'true':'false');b.onclick=function(){var prev=s.status;s.status=p[0];if(p[0]==='1H'&&prev==='pre'){resetC(s.clock,true);ptKick(s)}else if(p[0]==='2H'&&prev!=='2H'){flushPT(s);resetC(s.clock,true);s.pt.since=0}else if(p[0]==='HT'||p[0]==='FT'||p[0]==='pre'){flushPT(s);pauseC(s.clock)}commit(g.n,s)};sb.appendChild(b)});
+  STAT.forEach(function(p){var b=el('button',null,p[1]);b.setAttribute('aria-pressed',s.status===p[0]?'true':'false');b.onclick=function(){var prev=s.status;s.status=p[0];if(p[0]==='1H'&&prev==='pre'){resetC(s.clock,true);ptKick(s)}else if(p[0]==='2H'&&prev!=='2H'){flushPT(s);resetC(s.clock,true);s.pt.since=0}else if(p[0]==='HT'||p[0]==='FT'||p[0]==='pre'){flushPT(s);pauseC(s.clock)}commit(g.n,s,['status','clock','pt'])};sb.appendChild(b)});
   var log=document.getElementById('glog');log.textContent='';
   if(!s.goals.length){log.appendChild(el('li',null,'No goals yet.'))}
   s.goals.forEach(function(x,i){var li=el('li');li.appendChild(el('span',null,(x.t==='us'?'Armadillos'+(x.p?' – '+dn(x.p):''):g.opp)+'  ('+(x.h===2?'2nd':'1st')+' half)'));
-    if(!RO){var d=el('button',null,'✕');d.setAttribute('aria-label','Remove this goal');d.onclick=function(){if(confirm('Remove this goal?')){s.goals.splice(i,1);commit(g.n,s)}};li.appendChild(d)}log.appendChild(li)});
+    if(!RO){var d=el('button',null,'✕');d.setAttribute('aria-label','Remove this goal');d.onclick=function(){if(confirm('Remove this goal?')){s.goals.splice(i,1);commit(g.n,s,['goals'])}};li.appendChild(d)}log.appendChild(li)});
 }
-function commit(n,s){s.updated=Date.now();scores[n]=s;try{localStorage.setItem(SKEY,JSON.stringify(scores))}catch(e){}renderScore();renderSchedule();paintClock();
-  if(scoreWrite)scoreWrite(n,s).catch(function(){ssync.textContent='Saved on this phone. It will sync when you have signal.'})}
+function commit(n,s,fields){s.updated=Date.now();scores[n]=s;try{localStorage.setItem(SKEY,JSON.stringify(scores))}catch(e){}renderScore();renderSchedule();paintClock();
+  if(scoreWrite)scoreWrite(n,s,fields).catch(function(){ssync.textContent='Saved on this phone. It will sync when you have signal.'})}
 function half(s){return(s.status==='2H'||s.status==='FT')?2:1}
-function addGoal(t,p){var g=curGame(),s=sc(g.n);if(s.status==='pre')s.status='1H';s.goals.push({t:t,p:p||'',h:half(s)});commit(g.n,s)}
-function removeLast(t){var g=curGame(),s=sc(g.n);for(var i=s.goals.length-1;i>=0;i--){if(s.goals[i].t===t){s.goals.splice(i,1);commit(g.n,s);return}}}
+function addGoal(t,p){var g=curGame(),s=sc(g.n);if(s.status==='pre')s.status='1H';s.goals.push({t:t,p:p||'',h:half(s)});commit(g.n,s,['goals','status'])}
+function removeLast(t){var g=curGame(),s=sc(g.n);for(var i=s.goals.length-1;i>=0;i--){if(s.goals[i].t===t){s.goals.splice(i,1);commit(g.n,s,['goals']);return}}}
 var chips=document.getElementById('chips');
 NAMES.slice().sort(function(a,b){return dn(a).localeCompare(dn(b))}).forEach(function(n){var b=el('button',null,dn(n));b.onclick=function(){document.getElementById('picker').hidden=true;addGoal('us',n)};chips.appendChild(b)});
 var skip=el('button','skip','Not sure');skip.onclick=function(){document.getElementById('picker').hidden=true;addGoal('us','')};chips.appendChild(skip);
@@ -452,13 +452,19 @@ if(SCORE){
   ssync.textContent='Connecting…';
   getFB().then(function(x){var F=x.F,db=x.db,col=F.collection(db,'scores',SCORE,'games');
     var mcol=VIEW?F.collection(db,'view',VIEW,'games'):null,seeded=false;
-    scoreWrite=function(n,s){var d={goals:s.goals,status:s.status,clock:{run:!!s.clock.run,t0:s.clock.t0||0,acc:s.clock.acc||0},pt:normPT(s.pt),updated:F.serverTimestamp()};if(!mcol)return F.setDoc(F.doc(col,n),d);var dm={goals:d.goals,status:d.status,clock:d.clock,updated:d.updated};var b=F.writeBatch(db);b.set(F.doc(col,n),d);b.set(F.doc(mcol,n),dm);return b.commit()};
+    scoreWrite=function(n,s,fields,seedOnly){var d={goals:s.goals,status:s.status,clock:{run:!!s.clock.run,t0:s.clock.t0||0,acc:s.clock.acc||0},pt:normPT(s.pt),updated:F.serverTimestamp()};
+      if(!fields||!serverHas[n])fields=['goals','status','clock','pt'];
+      var pf=seedOnly?['updated']:fields.concat('updated'),mf=(seedOnly?['goals','status','clock']:fields.filter(function(f){return f!=='pt'}));
+      if(!mcol||!mf.length)return F.setDoc(F.doc(col,n),d,{mergeFields:pf});
+      var dm={goals:d.goals,status:d.status,clock:d.clock,updated:d.updated};var b=F.writeBatch(db);b.set(F.doc(col,n),d,{mergeFields:pf});b.set(F.doc(mcol,n),dm,{mergeFields:mf.concat('updated')});return b.commit()};
     F.onSnapshot(col,function(qs){
-      if(!seeded&&mcol&&!qs.metadata.fromCache){seeded=true;qs.docs.forEach(function(dd){var d=dd.data();if(Array.isArray(d.goals))scoreWrite(dd.id,{goals:d.goals,status:d.status||'pre',clock:d.clock||{run:false,t0:0,acc:0},pt:d.pt}).catch(function(){})})}
+      if(!seeded&&mcol&&!qs.metadata.fromCache){seeded=true;qs.docs.forEach(function(dd){var d=dd.data();if(Array.isArray(d.goals))serverHas[dd.id]=true;scoreWrite(dd.id,{goals:d.goals,status:d.status||'pre',clock:d.clock||{run:false,t0:0,acc:0},pt:d.pt},null,true).catch(function(){})})}
       ssync.textContent=qs.metadata.fromCache?'Offline. Showing the last synced scores.':'Scores are live and shared.';
+      qs.docs.forEach(function(dd){serverHas[dd.id]=true});
       qs.docChanges().forEach(function(ch){if(ch.doc.metadata.hasPendingWrites)return;var d=ch.doc.data();if(Array.isArray(d.goals))scores[ch.doc.id]={goals:d.goals,status:d.status||'pre',clock:d.clock||{run:false,t0:0,acc:0},pt:d.pt}});
       try{localStorage.setItem(SKEY,JSON.stringify(scores))}catch(e){}
       renderScore();renderSchedule();
+      if(TEAM){var lg=lineGame(),ls=scores[lg.n];if(ls&&live(sc(lg.n))){var k=lg.n+ls.status;if(ptChecked!==k){ptChecked=k;ptSync()}}}
     },function(){ssync.textContent='Could not reach shared scores. Saving on this phone only.'});
   }).catch(function(){ssync.textContent='Offline. Saving on this phone only.'});
 }else if(RO){
@@ -466,7 +472,7 @@ if(SCORE){
   getFB().then(function(x){var F=x.F,db=x.db;
     F.onSnapshot(F.collection(db,'view',VIEW,'games'),function(qs){
       ssync.textContent=qs.metadata.fromCache?'Offline. Showing the last scores this phone saw.':'Live scores from the sideline.';
-      qs.docChanges().forEach(function(ch){var d=ch.doc.data();if(Array.isArray(d.goals))scores[ch.doc.id]={goals:d.goals,status:d.status||'pre',clock:d.clock||{run:false,t0:0,acc:0},pt:d.pt}});
+      qs.docChanges().forEach(function(ch){var d=ch.doc.data();scores[ch.doc.id]={goals:Array.isArray(d.goals)?d.goals:[],status:d.status||'pre',clock:d.clock||{run:false,t0:0,acc:0},pt:d.pt}});
       try{localStorage.setItem(SKEY,JSON.stringify(scores))}catch(e){}
       renderScore();renderSchedule();paintClock();
     },function(){ssync.textContent='Could not load scores right now.'});
@@ -500,10 +506,10 @@ function paintClock(){
   var lb=document.getElementById('lGo');lb.textContent=lc.run?'Pause':'Start';lb.className=lc.run?'':'go';
   var inf=document.getElementById('lInfo');inf.textContent='';var bb=document.createElement('b');bb.textContent=STLBL[ls.status]+' · '+lr[0]+'–'+lr[1];inf.appendChild(bb);inf.appendChild(document.createElement('br'));inf.appendChild(document.createTextNode((lg.home?'vs ':'at ')+lg.opp));
 }
-function toggle(n){var s=sc(n);if(s.clock.run){flushPT(s);pauseC(s.clock)}else{if(s.status==='pre'){s.status='1H';resetC(s.clock,true);ptKick(s)}else startC(s.clock)}commit(n,s)}
+function toggle(n){var s=sc(n);if(s.clock.run){flushPT(s);pauseC(s.clock)}else{if(s.status==='pre'){s.status='1H';resetC(s.clock,true);ptKick(s)}else startC(s.clock)}commit(n,s,['status','clock','pt'])}
 document.getElementById('sGo').onclick=function(){toggle(clockGame().n)};
 document.getElementById('lGo').onclick=function(){toggle(lineGame().n)};
-document.getElementById('sReset').onclick=function(){var g=clockGame(),s=sc(g.n);if(elapsed(s.clock)>0&&!confirm('Reset the clock to 0:00?'))return;flushPT(s);resetC(s.clock,false);s.pt.since=0;commit(g.n,s)};
+document.getElementById('sReset').onclick=function(){var g=clockGame(),s=sc(g.n);if(elapsed(s.clock)>0&&!confirm('Reset the clock to 0:00?'))return;flushPT(s);resetC(s.clock,false);s.pt.since=0;commit(g.n,s,['clock','pt'])};
 /* playing time */
 var GRP={GK:'GK',LB:'D',CB:'D',RB:'D',LM:'M',CM:'M',RM:'M',F:'F',LF:'F',RF:'F'};
 function fieldNow(){var l=cur.lineups[cur.formation],o={};NAMES.slice().sort().forEach(function(n){if(l[n]&&GRP[l[n]])o[n]=GRP[l[n]]});return o}
@@ -511,7 +517,8 @@ function sig(o){return JSON.stringify(Object.keys(o).sort().map(function(k){retu
 function flushPT(s){var e=elapsed(s.clock);if(e<(s.pt.since||0))s.pt.since=0;var d=e-(s.pt.since||0);if(d>0)Object.keys(s.pt.pos).forEach(function(n){var g=s.pt.pos[n],m=s.pt.mins[n]||(s.pt.mins[n]={});m[g]=(m[g]||0)+d});s.pt.since=e}
 function ptKick(s){var f=fieldNow();s.pt={pos:f,since:0,mins:s.pt&&s.pt.mins&&Object.keys(s.pt.mins).length?s.pt.mins:{},start:s.pt&&s.pt.start&&s.pt.start.length?s.pt.start:Object.keys(f)}}
 function live(s){return s.status==='1H'||s.status==='2H'||s.status==='HT'}
-function ptSync(){if(LRO||!scores)return;var g=lineGame(),s=sc(g.n);if(!live(s))return;var f=fieldNow();if(sig(f)===sig(s.pt.pos))return;flushPT(s);s.pt.pos=f;commit(g.n,s)}
+function ptSync(){if(LRO||!scores)return;var g=lineGame(),s=sc(g.n);if(!live(s))return;var f=fieldNow();if(sig(f)===sig(s.pt.pos))return;flushPT(s);s.pt.pos=f;commit(g.n,s,['pt']);
+  if(TEAM&&writeDoc&&JSON.stringify(cur)!==JSON.stringify(saved)){saved=copy(cur);try{localStorage.setItem(KEY,JSON.stringify(saved))}catch(e){}writeDoc(copy(cur)).catch(function(){});refresh();msg('Sub saved and shared.','ok')}}
 function ptBy(s,n){var m={},src=s.pt.mins[n]||{};Object.keys(src).forEach(function(k){m[k]=src[k]});var g=s.pt.pos[n];if(g&&s.clock.run!==undefined){var e=elapsed(s.clock);if(e>=(s.pt.since||0))m[g]=(m[g]||0)+e-(s.pt.since||0)}return m}
 function ptMs(s,n){var m=ptBy(s,n);return Object.keys(m).reduce(function(t,k){return t+m[k]},0)}
 var subInt=0;try{subInt=+localStorage.getItem(KEY+'-subint')||0}catch(e){}
