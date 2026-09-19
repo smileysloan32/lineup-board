@@ -343,8 +343,8 @@ saveBtn.onclick=function(){
 };
 undoBtn.onclick=function(){cur=copy(saved);renderAll();refresh();msg('Changes undone.','')};
 document.getElementById('share').onclick=function(){
-  var url=location.origin+location.pathname+'#'+btoa(unescape(encodeURIComponent(JSON.stringify(cur))));
-  if(navigator.share){navigator.share({title:'Armadillos lineup',text:'Here is the lineup:',url:url}).catch(function(){})}
+  var url=VIEW?location.origin+location.pathname+'?view='+VIEW:location.origin+location.pathname+'#'+btoa(unescape(encodeURIComponent(JSON.stringify(cur))));
+  if(navigator.share){navigator.share({title:'Armadillos',text:VIEW?'Armadillos live lineup, schedule and scores:':'Here is the lineup:',url:url}).catch(function(){})}
   else if(navigator.clipboard){navigator.clipboard.writeText(url).then(function(){msg('Link copied. Paste it in a text.','ok')},function(){prompt('Copy this link:',url)})}
   else prompt('Copy this link:',url);
 };
@@ -352,7 +352,7 @@ var SCORE=null;
 try{var q2=new URLSearchParams(location.search).get('score');if(q2&&/^[a-z0-9]{20,40}$/.test(q2)){SCORE=q2;localStorage.setItem(KEY+'-score',q2)}else SCORE=localStorage.getItem(KEY+'-score')}catch(e){}
 var VIEW=null;
 try{var q3=new URLSearchParams(location.search).get('view');if(q3&&/^[a-z0-9]{20,40}$/.test(q3)){VIEW=q3;localStorage.setItem(KEY+'-view',q3)}else VIEW=localStorage.getItem(KEY+'-view')}catch(e){}
-var RO=!!(VIEW&&!TEAM&&!SCORE),LRO=!!(VIEW&&!TEAM);
+var RO=!TEAM&&!SCORE,LRO=!TEAM;
 if(RO)document.body.classList.add('ro');if(LRO)document.body.classList.add('lro');
 var fbP=null;
 function getFB(){if(fbP)return fbP;var base='https://www.gstatic.com/firebasejs/10.12.2/';
@@ -488,7 +488,7 @@ if(SCORE){
       if(TEAM){var lg=lineGame(),ls=scores[lg.n];if(ls&&live(sc(lg.n))){var k=lg.n+ls.status;if(ptChecked!==k){ptChecked=k;ptSync()}}}
     },function(){ssync.textContent='Could not reach shared scores. Saving on this phone only.'});
   }).catch(function(){ssync.textContent='Offline. Saving on this phone only.'});
-}else if(RO){
+}else if(RO&&VIEW){
   ssync.textContent='Connecting…';sync('Connecting…');
   getFB().then(function(x){var F=x.F,db=x.db;
     F.onSnapshot(F.collection(db,'view',VIEW,'games'),function(qs){
@@ -501,7 +501,7 @@ if(SCORE){
   }).catch(function(){ssync.textContent='Offline.';sync('Offline.')});
 }else ssync.textContent='Scores save on this phone only.';
 if(!SCORE)setTimeout(cleanup,0);
-if(LRO){sync('Connecting…');getFB().then(function(x){var F=x.F,db=x.db;
+if(LRO&&VIEW){sync('Connecting…');getFB().then(function(x){var F=x.F,db=x.db;
     F.onSnapshot(F.doc(db,'view',VIEW,'data','lineup'),function(snap){
       sync(snap.metadata.fromCache?'Offline. Showing the last lineup this phone saw.':'This is the coach\'s current lineup.');
       if(!snap.exists())return;var d=snap.data(),st=normalize({formation:d.formation,lineups:d.lineups});
@@ -509,6 +509,7 @@ if(LRO){sync('Connecting…');getFB().then(function(x){var F=x.F,db=x.db;
       try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}
     },function(){sync('Could not load the lineup right now.')});
 }).catch(function(){sync('Offline.')})}
+if(RO&&!VIEW){sync('This is a view-only copy. Ask your coach for the parent link to see the live lineup and scores.');ssync.textContent='Ask your coach for the parent link to see live scores.'}
 function roLabel(){if(!LRO)return;var m={'321':'3-2-1','222':'2-2-2','231':'2-3-1'};document.getElementById('lsub').textContent='Formation: '+m[cur.formation]+'. Lineup set by the coaches.'}
 roLabel();if(RO){document.querySelector('#tab-schedule .sub').textContent+=' Tap View score for live scores.'}
 if(VIEW&&!RO){var pl=document.getElementById('parentLink');pl.hidden=false;pl.onclick=function(){var u=location.origin+location.pathname+'?view='+VIEW;if(navigator.share)navigator.share({title:'Armadillos',text:'Armadillos lineup, schedule and live scores:',url:u}).catch(function(){});else prompt('Copy this link:',u)}}
