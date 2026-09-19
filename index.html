@@ -264,7 +264,7 @@ var FORMS={
 };
 var DEFAULT=JSON.parse(JSON.stringify(window.LINEUP_DEFAULT||null))||{"formation":"321","lineups":{"321":{"VS":"F","LR":"LM","AR":"RM","JN":"LB","MC":"CB","BS":"RB","RM":"GK","RR":"B1","PT":"B2","LJ":"B3","JO":"B4"},"222":{"VS":"LF","RR":"RF","LR":"LM","AR":"RM","JN":"LB","MC":"RB","RM":"GK","BS":"B1","PT":"B2","LJ":"B3","JO":"B4"},"231":{"VS":"F","LR":"LM","BS":"CM","AR":"RM","JN":"LB","MC":"RB","RM":"GK","RR":"B1","PT":"B2","LJ":"B3","JO":"B4"}}};
 var NAMES=Object.keys(DEFAULT.lineups["321"]);
-var DISPLAY={"RM":"Roane","JO":"Jesus","AR":"Able","BS":"Brooke","MC":"Maxx","JN":"Jose","LJ":"Lucas","LR":"Libby","RR":"Ralph","PT":"Peter","VS":"Vedith"};
+var DISPLAY={"RM":"Roane","JO":"Jesus","AR":"Abel","BS":"Brooke","MC":"Maxx","JN":"Jose","LJ":"Lucas","LR":"Libby","RR":"Ralph","PT":"Peter","VS":"Vedith"};
 function dn(n){return DISPLAY[n]||n}
 var W=320,H=600,KEY='u10-lineup-board-standalone';
 function copy(o){return JSON.parse(JSON.stringify(o))}
