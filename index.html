@@ -180,6 +180,9 @@ h2{font:700 1.3rem "Barlow Condensed",sans-serif;margin:18px 0 4px}
  #ptBox{margin-top:8px}
  .lro #tab-lineup:not([hidden]){grid-template-columns:minmax(0,1fr) minmax(300px,380px);grid-template-areas:"fm clock" "board sub" "board sync" "board pt"}
 }
+.locked .pm,.locked #statusBtns button[aria-pressed="false"],.locked #sGo,.locked #sReset,.locked #picker{display:none!important}
+.locked #statusBtns button[aria-pressed="true"]{flex:1 1 100%;cursor:default}
+#lclock.locked #lGo{display:none}
 </style>
 </head>
 <body>
@@ -399,8 +402,13 @@ function gameDate(g){var p=g.d.split('-'),h=g.t.split(':');return new Date(+p[0]
 function dayKey(dt){return dt.getFullYear()+'-'+dt.getMonth()+'-'+dt.getDate()}
 function fmtWhen(g){var dt=gameDate(g);return dt.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+', '+dt.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}
 function nextGame(){var now=new Date(),today=dayKey(now);
-  for(var i=0;i<GAMES.length;i++){var g=GAMES[i];if(dayKey(gameDate(g))===today&&sc(g.n).status!=='FT')return g}
+  var todays=GAMES.filter(function(g){return dayKey(gameDate(g))===today});
+  for(var i=0;i<todays.length;i++){if(sc(todays[i].n).status!=='FT')return todays[i]}
+  if(todays.length)return todays[todays.length-1];
   for(i=0;i<GAMES.length;i++){if(gameDate(GAMES[i])>now)return GAMES[i]}return GAMES[GAMES.length-1]}
+function isToday(g){return dayKey(gameDate(g))===dayKey(new Date())}
+function isFuture(g){var d=gameDate(g),n=new Date();return d>n&&!isToday(g)}
+function shownMs(s){return s.status==='FT'?(s.clock.acc||0):elapsed(s.clock)}
 function el(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
 function resultText(g){var s=sc(g.n),r=tally(s);if(s.status==='pre'&&!s.goals.length)return null;
   if(s.status==='FT'){var k=r[0]>r[1]?'w':r[0]<r[1]?'l':'';return{t:(k==='w'?'W ':k==='l'?'L ':'T ')+r[0]+'–'+r[1],k:k}}
@@ -430,17 +438,26 @@ function renderScore(){
   document.getElementById('oppName').textContent=g.opp;
   document.getElementById('sUs').textContent=r[0];document.getElementById('sThem').textContent=r[1];
   var sb=document.getElementById('statusBtns');sb.textContent='';
-  STAT.forEach(function(p){var b=el('button',null,p[1]);b.setAttribute('aria-pressed',s.status===p[0]?'true':'false');b.onclick=function(){var prev=s.status;s.status=p[0];if(p[0]==='1H'&&prev==='pre'){resetC(s.clock,true);ptKick(s)}else if(p[0]==='2H'&&prev!=='2H'){flushPT(s);resetC(s.clock,true);s.pt.since=0}else if(p[0]==='HT'||p[0]==='FT'||p[0]==='pre'){flushPT(s);pauseC(s.clock)}commit(g.n,s,['status','clock','pt'])};sb.appendChild(b)});
+  STAT.forEach(function(p){var b=el('button',null,p[1]);b.setAttribute('aria-pressed',s.status===p[0]?'true':'false');b.onclick=function(){var prev=s.status;if(prev==='FT'||p[0]===prev)return;
+    if(p[0]==='FT'&&!confirm('End the game?\n\nAfter this, the score, clock and playing time are locked and can\'t be changed.'))return;
+    if(p[0]==='pre'&&!confirm('Reset this game to Not started?\n\nThe clock and playing time for this game will be cleared. Goals stay.'))return;
+    if(p[0]==='1H'&&prev==='pre'&&!isToday(g)&&!confirm('This game is on '+fmtWhen(g)+'. Start it now?'))return;
+    s.status=p[0];
+    if(p[0]==='1H'&&prev==='pre'){resetC(s.clock,true);ptKick(s)}
+    else if(p[0]==='2H'&&prev!=='2H'){flushPT(s);resetC(s.clock,true);s.pt.since=0}
+    else if(p[0]==='pre'){resetC(s.clock,false);s.pt={pos:{},since:0,mins:{},start:[]}}
+    else if(p[0]==='HT'||p[0]==='FT'){flushPT(s);pauseC(s.clock)}
+    commit(g.n,s,['status','clock','pt'])};sb.appendChild(b)});
   var log=document.getElementById('glog');log.textContent='';
   if(!s.goals.length){log.appendChild(el('li',null,'No goals yet.'))}
   s.goals.forEach(function(x,i){var li=el('li');li.appendChild(el('span',null,(x.t==='us'?'Armadillos'+(x.p?' – '+dn(x.p):''):g.opp)+'  ('+(x.h===2?'2nd':'1st')+' half)'));
-    if(!RO){var d=el('button',null,'✕');d.setAttribute('aria-label','Remove this goal');d.onclick=function(){if(confirm('Remove this goal?')){s.goals.splice(i,1);commit(g.n,s,['goals'])}};li.appendChild(d)}log.appendChild(li)});
+    if(!RO&&s.status!=='FT'){var d=el('button',null,'✕');d.setAttribute('aria-label','Remove this goal');d.onclick=function(){if(confirm('Remove this goal?')){s.goals.splice(i,1);commit(g.n,s,['goals'])}};li.appendChild(d)}log.appendChild(li)});
 }
 function commit(n,s,fields){s.updated=Date.now();scores[n]=s;try{localStorage.setItem(SKEY,JSON.stringify(scores))}catch(e){}renderScore();renderSchedule();paintClock();
   if(scoreWrite)scoreWrite(n,s,fields).catch(function(){ssync.textContent='Saved on this phone. It will sync when you have signal.'})}
 function half(s){return(s.status==='2H'||s.status==='FT')?2:1}
-function addGoal(t,p){var g=curGame(),s=sc(g.n);if(s.status==='pre')s.status='1H';s.goals.push({t:t,p:p||'',h:half(s)});commit(g.n,s,['goals','status'])}
-function removeLast(t){var g=curGame(),s=sc(g.n);for(var i=s.goals.length-1;i>=0;i--){if(s.goals[i].t===t){s.goals.splice(i,1);commit(g.n,s,['goals']);return}}}
+function addGoal(t,p){var g=curGame(),s=sc(g.n);if(s.status==='FT')return;if(s.status==='pre')s.status='1H';s.goals.push({t:t,p:p||'',h:half(s)});commit(g.n,s,['goals','status'])}
+function removeLast(t){var g=curGame(),s=sc(g.n);if(s.status==='FT')return;for(var i=s.goals.length-1;i>=0;i--){if(s.goals[i].t===t){s.goals.splice(i,1);commit(g.n,s,['goals']);return}}}
 var chips=document.getElementById('chips');
 NAMES.slice().sort(function(a,b){return dn(a).localeCompare(dn(b))}).forEach(function(n){var b=el('button',null,dn(n));b.onclick=function(){document.getElementById('picker').hidden=true;addGoal('us',n)};chips.appendChild(b)});
 var skip=el('button','skip','Not sure');skip.onclick=function(){document.getElementById('picker').hidden=true;addGoal('us','')};chips.appendChild(skip);
@@ -464,6 +481,7 @@ if(SCORE){
       qs.docChanges().forEach(function(ch){if(ch.doc.metadata.hasPendingWrites)return;var d=ch.doc.data();if(Array.isArray(d.goals))scores[ch.doc.id]={goals:d.goals,status:d.status||'pre',clock:d.clock||{run:false,t0:0,acc:0},pt:d.pt}});
       try{localStorage.setItem(SKEY,JSON.stringify(scores))}catch(e){}
       renderScore();renderSchedule();
+      if(!qs.metadata.fromCache)cleanup();
       if(TEAM){var lg=lineGame(),ls=scores[lg.n];if(ls&&live(sc(lg.n))){var k=lg.n+ls.status;if(ptChecked!==k){ptChecked=k;ptSync()}}}
     },function(){ssync.textContent='Could not reach shared scores. Saving on this phone only.'});
   }).catch(function(){ssync.textContent='Offline. Saving on this phone only.'});
@@ -479,6 +497,7 @@ if(SCORE){
 
   }).catch(function(){ssync.textContent='Offline.';sync('Offline.')});
 }else ssync.textContent='Scores save on this phone only.';
+if(!SCORE)setTimeout(cleanup,0);
 if(LRO){sync('Connecting…');getFB().then(function(x){var F=x.F,db=x.db;
     F.onSnapshot(F.doc(db,'view',VIEW,'data','lineup'),function(snap){
       sync(snap.metadata.fromCache?'Offline. Showing the last lineup this phone saw.':'This is the coach\'s current lineup.');
@@ -490,26 +509,33 @@ if(LRO){sync('Connecting…');getFB().then(function(x){var F=x.F,db=x.db;
 function roLabel(){if(!LRO)return;var m={'321':'3-2-1','222':'2-2-2','231':'2-3-1'};document.getElementById('lsub').textContent='Formation: '+m[cur.formation]+'. Lineup set by the coaches.'}
 roLabel();if(RO){document.querySelector('#tab-schedule .sub').textContent+=' Tap View score for live scores.'}
 if(VIEW&&!RO){var pl=document.getElementById('parentLink');pl.hidden=false;pl.onclick=function(){var u=location.origin+location.pathname+'?view='+VIEW;if(navigator.share)navigator.share({title:'Armadillos',text:'Armadillos lineup, schedule and live scores:',url:u}).catch(function(){});else prompt('Copy this link:',u)}}
+/* cleanup of accidental starts */
+var cleaned=false;
+function cleanup(){if(cleaned||RO||!scores)return;cleaned=true;
+  GAMES.forEach(function(g){var s=scores[g.n];if(!s)return;s=sc(g.n);
+    if(s.status==='FT'&&s.clock.run){s.clock.run=false;s.clock.t0=0;commit(g.n,s,['clock'])}
+    else if(isFuture(g)&&s.status!=='pre'&&!s.goals.length){s.status='pre';resetC(s.clock,false);s.pt={pos:{},since:0,mins:{},start:[]};commit(g.n,s,['status','clock','pt'])}
+  })}
 /* clock */
 var STLBL={pre:'Not started','1H':'1st half',HT:'Halftime','2H':'2nd half',FT:'Final'};
 function clockGame(){return curGame()}
 function lineGame(){return nextGame()}
 function paintClock(){
   var g=clockGame(),s=sc(g.n),c=s.clock,r=tally(s);
-  document.getElementById('sTm').textContent=fmtT(elapsed(c));
-  document.getElementById('sclock').classList.toggle('running',!!c.run);
+  document.getElementById('sTm').textContent=fmtT(shownMs(s));var fin=s.status==='FT';document.getElementById('tab-score').classList.toggle('locked',fin);
+  document.getElementById('sclock').classList.toggle('running',!!c.run&&!fin);
   document.getElementById('sGo').textContent=c.run?'Pause':'Start';document.getElementById('sGo').className=c.run?'':'go';
-  document.getElementById('sInfo').innerHTML='<b>'+STLBL[s.status]+'</b>';
+  document.getElementById('sInfo').innerHTML=fin?'<b>Final</b><br>Game over. Locked.':'<b>'+STLBL[s.status]+'</b>';
   var lg=lineGame(),ls=sc(lg.n),lc=ls.clock,lr=tally(ls);
-  document.getElementById('lTm').textContent=fmtT(elapsed(lc));
-  document.getElementById('lclock').classList.toggle('running',!!lc.run);
+  document.getElementById('lTm').textContent=fmtT(shownMs(ls));document.getElementById('lclock').classList.toggle('locked',ls.status==='FT');
+  document.getElementById('lclock').classList.toggle('running',!!lc.run&&ls.status!=='FT');
   var lb=document.getElementById('lGo');lb.textContent=lc.run?'Pause':'Start';lb.className=lc.run?'':'go';
   var inf=document.getElementById('lInfo');inf.textContent='';var bb=document.createElement('b');bb.textContent=STLBL[ls.status]+' · '+lr[0]+'–'+lr[1];inf.appendChild(bb);inf.appendChild(document.createElement('br'));inf.appendChild(document.createTextNode((lg.home?'vs ':'at ')+lg.opp));
 }
-function toggle(n){var s=sc(n);if(s.clock.run){flushPT(s);pauseC(s.clock)}else{if(s.status==='pre'){s.status='1H';resetC(s.clock,true);ptKick(s)}else startC(s.clock)}commit(n,s,['status','clock','pt'])}
+function toggle(n){var s=sc(n),g=GAMES.filter(function(x){return x.n===n})[0];if(s.status==='FT')return;if(!s.clock.run&&s.status==='pre'&&!isToday(g)&&!confirm('This game is on '+fmtWhen(g)+'. Start it now?'))return;if(s.clock.run){flushPT(s);pauseC(s.clock)}else{if(s.status==='pre'){s.status='1H';resetC(s.clock,true);ptKick(s)}else startC(s.clock)}commit(n,s,['status','clock','pt'])}
 document.getElementById('sGo').onclick=function(){toggle(clockGame().n)};
 document.getElementById('lGo').onclick=function(){toggle(lineGame().n)};
-document.getElementById('sReset').onclick=function(){var g=clockGame(),s=sc(g.n);if(elapsed(s.clock)>0&&!confirm('Reset the clock to 0:00?'))return;flushPT(s);resetC(s.clock,false);s.pt.since=0;commit(g.n,s,['clock','pt'])};
+document.getElementById('sReset').onclick=function(){var g=clockGame(),s=sc(g.n);if(s.status==='FT')return;if(elapsed(s.clock)>0&&!confirm('Reset the clock to 0:00?'))return;flushPT(s);resetC(s.clock,false);s.pt.since=0;commit(g.n,s,['clock','pt'])};
 /* playing time */
 var GRP={GK:'GK',LB:'D',CB:'D',RB:'D',LM:'M',CM:'M',RM:'M',F:'F',LF:'F',RF:'F'};
 function fieldNow(){var l=cur.lineups[cur.formation],o={};NAMES.slice().sort().forEach(function(n){if(l[n]&&GRP[l[n]])o[n]=GRP[l[n]]});return o}
@@ -519,7 +545,7 @@ function ptKick(s){var f=fieldNow();s.pt={pos:f,since:0,mins:s.pt&&s.pt.mins&&Ob
 function live(s){return s.status==='1H'||s.status==='2H'||s.status==='HT'}
 function ptSync(){if(LRO||!scores)return;var g=lineGame(),s=sc(g.n);if(!live(s))return;var f=fieldNow();if(sig(f)===sig(s.pt.pos))return;flushPT(s);s.pt.pos=f;commit(g.n,s,['pt']);
   if(TEAM&&writeDoc&&JSON.stringify(cur)!==JSON.stringify(saved)){saved=copy(cur);try{localStorage.setItem(KEY,JSON.stringify(saved))}catch(e){}writeDoc(copy(cur)).catch(function(){});refresh();msg('Sub saved and shared.','ok')}}
-function ptBy(s,n){var m={},src=s.pt.mins[n]||{};Object.keys(src).forEach(function(k){m[k]=src[k]});var g=s.pt.pos[n];if(g&&s.clock.run!==undefined){var e=elapsed(s.clock);if(e>=(s.pt.since||0))m[g]=(m[g]||0)+e-(s.pt.since||0)}return m}
+function ptBy(s,n){var m={},src=s.pt.mins[n]||{};Object.keys(src).forEach(function(k){m[k]=src[k]});var g=s.pt.pos[n];if(g&&s.status!=='FT'){var e=elapsed(s.clock);if(e>=(s.pt.since||0))m[g]=(m[g]||0)+e-(s.pt.since||0)}return m}
 function ptMs(s,n){var m=ptBy(s,n);return Object.keys(m).reduce(function(t,k){return t+m[k]},0)}
 var subInt=0;try{subInt=+localStorage.getItem(KEY+'-subint')||0}catch(e){}
 var subSel=document.getElementById('subInt');subSel.value=String(subInt);
