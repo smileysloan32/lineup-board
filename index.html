@@ -183,6 +183,9 @@ h2{font:700 1.3rem "Barlow Condensed",sans-serif;margin:18px 0 4px}
 .locked .pm,.locked #statusBtns button[aria-pressed="false"],.locked #sGo,.locked #sReset,.locked #picker{display:none!important}
 .locked #statusBtns button[aria-pressed="true"]{flex:1 1 100%;cursor:default}
 #lclock.locked #lGo{display:none}
+.clock.timeup{border-color:#E0A33A;background:#FDF3E1}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .clock.timeup{background:#3A2A10}}
+:root[data-theme="dark"] .clock.timeup{background:#3A2A10}
 </style>
 </head>
 <body>
@@ -586,7 +589,17 @@ function wake(){var any=GAMES.some(function(g){return sc(g.n).clock.run});
   if(any&&!wl&&navigator.wakeLock&&document.visibilityState==='visible'){navigator.wakeLock.request('screen').then(function(x){wl=x;x.addEventListener('release',function(){wl=null})}).catch(function(){})}
   else if(!any&&wl){wl.release().catch(function(){});wl=null}}
 document.addEventListener('visibilitychange',function(){wl=null;wake()});
-setInterval(function(){paintClock();paintPT();wake()},250);
+var HALF_MIN=25,halfAlerted={};
+function buzz(){try{if(!actx)return;[0,0.6,1.2].forEach(function(o){var t=actx.currentTime+o,os=actx.createOscillator(),gn=actx.createGain();os.type='sawtooth';os.frequency.value=220;gn.gain.setValueAtTime(0.0001,t);gn.gain.exponentialRampToValueAtTime(0.35,t+0.03);gn.gain.setValueAtTime(0.35,t+0.42);gn.gain.exponentialRampToValueAtTime(0.0001,t+0.5);os.connect(gn);gn.connect(actx.destination);os.start(t);os.stop(t+0.52)})}catch(e){}}
+function halfCheck(){
+  var seen={};[lineGame(),clockGame()].forEach(function(g){if(!g||seen[g.n])return;seen[g.n]=1;var s=sc(g.n);
+    var over=(s.status==='1H'||s.status==='2H')&&elapsed(s.clock)>=HALF_MIN*60000;
+    if(over&&!RO){var k=g.n+s.status;if(!halfAlerted[k]){halfAlerted[k]=1;try{navigator.vibrate&&navigator.vibrate([700,250,700,250,700])}catch(e){}buzz()}}
+    var extra=over?fmtT(elapsed(s.clock)-HALF_MIN*60000):'';
+    if(g===lineGame()){var lc=document.getElementById('lclock');lc.classList.toggle('timeup',over);if(over){var l=document.createElement('span');l.style.display='block';l.style.fontWeight='700';l.style.color='#8A4B0F';l.textContent=(s.status==='1H'?'Half':'Game')+' time is up · +'+extra;document.getElementById('lInfo').appendChild(l)}}
+    if(g===clockGame()){var sclk=document.getElementById('sclock');sclk.classList.toggle('timeup',over);if(over)document.getElementById('sInfo').innerHTML='<b>'+STLBL[s.status]+'</b><br><span style="color:#8A4B0F;font-weight:700">Time is up · +'+extra+'</span>'}
+  })}
+setInterval(function(){paintClock();paintPT();halfCheck();wake()},250);
 /* rotation + stats */
 var GCOL={GK:'#EF9F27',D:'#378ADD',M:'#1D9E75',F:'#D85A30',X:'#888780'};
 function mins(ms){return Math.round(ms/60000)}
