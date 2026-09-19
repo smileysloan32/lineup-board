@@ -161,18 +161,21 @@ h2{font:700 1.3rem "Barlow Condensed",sans-serif;margin:18px 0 4px}
 
 @media (min-width:760px){
  #tab-lineup:not([hidden]){display:grid;column-gap:22px;align-items:start;grid-template-columns:190px minmax(0,1fr);
-  grid-template-areas:"clock clock" "sub sub" "ctrl fm" "ctrl board" "sync sync" "pt pt"}
+  grid-template-areas:"clock clock" "sub sub" ". fm" "ctrl board" "sync sync" "pt pt"}
  #lclock{grid-area:clock}#lsub{grid-area:sub}#tab-lineup>.fm{grid-area:fm;width:100%;max-width:420px;justify-self:center;margin:0 0 12px}
  #tab-lineup>#board{grid-area:board;width:100%;justify-self:center}#ctrls{grid-area:ctrl}#sync{grid-area:sync}#ptBox{grid-area:pt}
- #ctrls .row{flex-direction:column;margin-top:0}
- #ctrls #share{margin-top:10px}
- #ctrls .link{display:block;margin:6px 0 0!important;text-align:left}
- #ctrls #status{margin-top:8px}
+ #ctrls{display:flex;flex-direction:column;gap:10px}
+ #ctrls .row{display:flex;flex-direction:column;gap:10px;margin:0}
+ #ctrls #share{margin:0}
+ #ctrls .act,#ctrls .link{width:100%;min-height:48px;padding:12px 10px;margin:0!important}
+ #ctrls .link{display:block;border:1.5px solid var(--line);border-radius:10px;background:var(--btn);color:var(--ink);font:600 1rem Barlow,system-ui,sans-serif;text-decoration:none;text-align:center}
+ #ctrls .link[hidden]{display:none}
+ #ctrls #status{order:10;margin:0;font-size:.9rem}
  .lro #tab-lineup:not([hidden]){grid-template-columns:minmax(0,1fr);grid-template-areas:"clock" "sub" "fm" "board" "sync" "pt"}
 }
 @media (min-width:760px) and (orientation:landscape){
  #tab-lineup:not([hidden]){grid-template-columns:180px minmax(0,1fr) minmax(300px,380px);grid-template-rows:auto auto auto 1fr;
-  grid-template-areas:"ctrl fm clock" "ctrl board sub" "ctrl board sync" "ctrl board pt"}
+  grid-template-areas:". fm clock" "ctrl board sub" "ctrl board sync" "ctrl board pt"}
  #tab-lineup>#board{max-width:calc((100svh - 190px) * 320 / 600)}
  #ptBox{margin-top:8px}
  .lro #tab-lineup:not([hidden]){grid-template-columns:minmax(0,1fr) minmax(300px,380px);grid-template-areas:"fm clock" "board sub" "board sync" "board pt"}
@@ -210,7 +213,7 @@ h2{font:700 1.3rem "Barlow Condensed",sans-serif;margin:18px 0 4px}
 </div>
 <p id="status" role="status"></p>
 <button class="act" id="share" style="width:100%;margin-top:10px">Share this lineup</button>
-<button class="link" id="reset">Reset this formation</button>
+<button class="link" id="reset">Reset formation</button>
 <button class="link" id="coach" hidden style="margin-left:14px">Copy coach link</button>
 </div>
 <p id="sync" style="margin:4px 0 0;font-size:.85rem;color:var(--muted)"></p>
