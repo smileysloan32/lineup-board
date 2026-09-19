@@ -127,6 +127,42 @@ h2{font:700 1.3rem "Barlow Condensed",sans-serif;margin:18px 0 4px}
 .srow .n{text-align:right;font-weight:700}
 .resrow{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:.95rem}
 .empty{color:var(--muted);font-size:.95rem;padding:6px 0}
+
+@media (min-width:760px){
+ main{max-width:1180px;padding-left:24px;padding-right:24px}
+ .tabs{max-width:640px}
+ main{max-width:1180px}
+ #board{max-width:min(560px,calc((100svh - 330px) * 320 / 600))}
+ .tok{font-size:17px;padding:7px 14px}
+ .side .num{font-size:7rem}
+ .pm button{padding:18px 0;font-size:2rem}
+ .clock.big .tm{font-size:4rem}
+ .stat button{padding:13px 4px;font-size:1rem}
+ .chips button{padding:12px 18px;font-size:1.05rem}
+ #games{display:grid;grid-template-columns:1fr 1fr;column-gap:12px}
+ #tab-rotation:not([hidden]),#tab-stats:not([hidden]){display:grid;grid-template-columns:1fr 1fr;column-gap:28px;align-items:start}
+ #tab-rotation>*{grid-column:1}
+ #tab-rotation>h2,#tab-rotation>#rotGame,#tab-rotation>#rotGameList{grid-column:2}
+ #tab-rotation>h2{grid-row:1;margin-top:0}#tab-rotation>#rotGame{grid-row:2}#tab-rotation>#rotGameList{grid-row:3/span 3}
+ #tab-stats>#recBox{grid-column:1/3}
+ #tab-stats>h2:nth-of-type(1),#tab-stats>#scorers{grid-column:1}
+ #tab-stats>h2:nth-of-type(2),#tab-stats>#results{grid-column:2}
+ #tab-stats>h2{grid-row:2}#tab-stats>#scorers,#tab-stats>#results{grid-row:3}
+}
+@media (min-width:760px) and (orientation:landscape){
+ #tab-lineup:not([hidden]){display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,400px);column-gap:28px;align-items:start}
+ #tab-lineup>*{grid-column:2}
+ #tab-lineup>.fm{grid-column:1;grid-row:1;margin-top:0;width:100%;max-width:420px;justify-self:center}
+ .ptrow{grid-template-columns:5.2em 1fr 3.4em}
+ #tab-lineup>#board{grid-column:1;grid-row:2/span 14;max-width:calc((100svh - 210px) * 320 / 600)}
+ #tab-lineup>#lclock{grid-row:1}
+ #tab-score:not([hidden]){display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);column-gap:28px;align-items:start}
+ #tab-score>*{grid-column:1}
+ #tab-score>h2,#tab-score>#glog,#tab-score>#ssync{grid-column:2}
+ #tab-score>h2{grid-row:1;margin-top:0}
+ #tab-score>#glog{grid-row:2/span 5}
+ #tab-score>#ssync{grid-row:7}
+}
 </style>
 </head>
 <body>
